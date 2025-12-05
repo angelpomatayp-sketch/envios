@@ -70,3 +70,34 @@ Crear dos servicios web (o uno si fusionas API+SSR):
 - Añadir esquema de base de datos (Postgres/PostGIS) y env vars para `api`.
 - Definir payloads de eventos WebSocket y endpoints REST/GraphQL iniciales.
 - Diseñar pantallas clave (cliente y admin) y flujos de notificación push/SMS.
+
+## 10. Esquema de base de datos (Postgres/PostGIS, borrador)
+- users: id (uuid), email, phone, nombre, rol (`cliente|admin|conductor`), hash de auth externo (si aplica), timestamps.
+- shipments: id (uuid), tracking_code (unique), remitente/destinatario (strings), origen/destino (texto + coords Point), servicio, eta, estado_actual, conductor_id (fk users), created_at/updated_at.
+- shipment_events (hitos): id (uuid), shipment_id (fk), tipo (`creado|asignado|recogido|en_ruta|en_reparto|entregado|intentado_fallido|devuelto|cancelado`), message/motivo, evidencia_id (fk), location_id (fk opcional), created_at.
+- locations: id (uuid), geom Point (PostGIS), accuracy, recorded_at, source (`gps|manual`), conductor_id opcional.
+- evidences: id (uuid), shipment_id (fk), url, tipo (`foto|doc`), metadata json, created_at.
+- notifications: id, shipment_id, tipo (`push|sms|email`), destinatario, payload json, status (`pendiente|enviado|error`), timestamps.
+- Índices claves: `shipments.tracking_code`, GIST en `locations.geom`, `shipment_events.shipment_id`, `notifications.status`.
+
+## 11. API y WebSockets (mínimo viable)
+- REST (api):
+  - `POST /auth/login` (si no se usa Firebase Auth).
+  - `GET /shipments/:tracking_code` → detalle + últimos hitos.
+  - `GET /shipments/:tracking_code/events` → historial.
+  - `POST /shipments` (admin) → crear envío.
+  - `PATCH /shipments/:id/assign` (admin) → asignar conductor.
+  - `POST /shipments/:id/events` (conductor/admin) → registrar hito con estado y evidencia opcional.
+  - `POST /shipments/:id/locations` (conductor) → pings de ubicación (rate-limit server-side).
+- WebSocket:
+  - Canal `shipments.{tracking_code}`: eventos `hito_actualizado`, `ubicacion_actualizada`.
+  - Mensajes ejemplo:
+    - Hito: `{ type: "hito_actualizado", data: { trackingCode, estado, eventoId, timestamp, motivo?, evidenciaUrl?, location? } }`
+    - Ubicación: `{ type: "ubicacion_actualizada", data: { trackingCode, lat, lng, accuracy, timestamp } }`
+- Seguridad:
+  - Roles: `cliente` puede leer su envío por tracking y recibir WS; `conductor` puede publicar eventos/ubicaciones de envíos asignados; `admin` CRUD completo.
+  - Autenticación: JWT propio o Firebase; proteger WS con token.
+
+## 12. Variables de entorno sugeridas
+- Backend (`api`): `DATABASE_URL` (Postgres), `REDIS_URL`, `PORT`, `JWT_SECRET` o credenciales Firebase, `STORAGE_BASE_URL` para evidencias.
+- Frontend (`web`): `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, claves públicas para mapas (si aplica).

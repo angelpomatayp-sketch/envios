@@ -101,3 +101,9 @@ Crear dos servicios web (o uno si fusionas API+SSR):
 ## 12. Variables de entorno sugeridas
 - Backend (`api`): `DATABASE_URL` (Postgres), `REDIS_URL`, `PORT`, `JWT_SECRET` o credenciales Firebase, `STORAGE_BASE_URL` para evidencias.
 - Frontend (`web`): `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, claves públicas para mapas (si aplica).
+
+## 13. Inicializar base de datos
+- Requisitos: Postgres + PostGIS (`CREATE EXTENSION postgis;`), `uuid-ossp`.
+- Ejecutar el esquema base:
+  - `psql -d <tu_database> -f db/schema.sql`
+- Tablas: `users`, `shipments`, `locations`, `evidences`, `shipment_events`, `notifications` con índices básicos y campos geométricos (SRID 4326).

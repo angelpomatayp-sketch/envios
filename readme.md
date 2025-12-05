@@ -1,39 +1,53 @@
-# TrackCargo Pro — Análisis y Alcance Web
+# TrackCargo Pro — Web, SSR y API
 
-## 1. Resumen
-- Plataforma 100% web, mobile-first y responsive. Los usuarios finales operarán desde su navegador móvil; el panel/admin también debe adaptarse a escritorio y móvil.
-- Objetivo: rastreo en tiempo real de envíos, visibilidad de estado y tiempos estimados, y gestión administrativa de la operación logística.
-- Tecnologías de referencia: frontend web (SPA) + API REST/GraphQL + canal tiempo real (WebSocket/SSE). Persistencia en Firestore/Realtime DB y archivos en Cloud Storage. Autenticación en Firebase Auth. Notificaciones push web (FCM) y SMS opcional.
+## 1. Resumen y alcance
+- Plataforma 100% web, mobile-first y responsive para clientes finales (uso en móviles) y panel/admin. En el futuro, conductor web móvil (PWA) si se requiere.
+- Objetivo: rastreo en tiempo real, visibilidad de estado y ETA, y gestión administrativa/logística.
+- Stack elegido: Frontend `Next.js` (SSR/PWA) + Backend `NestJS` (REST + WebSockets). Cache/pub-sub con Redis (Render “Valor clave”) y base de datos recomendada: Postgres + PostGIS para geodatos.
 
-## 2. Roles y casos de uso
-- Cliente final (web móvil): buscar envíos por código, ver estado y ubicación en tiempo real, recibir notificaciones, ver historial.
-- Administrador/operador (panel web responsive): crear/editar envíos, asignar conductores, monitorear rutas, generar reportes y gestionar incidencias.
-- Conductor/usuario de ruta (web móvil, opcional): registrar hitos de ruta, actualizar estado, subir fotos de evidencia. Este rol depende de la decisión de conectividad/offline (ver sección 3).
+## 2. Conectividad y rol de ruta
+- Escenario A (sin offline): el conductor usa la misma web móvil (PWA), con conectividad razonable; menor complejidad.
+- Escenario B (offline-first): si hay zonas sin señal, se añade caché local/cola de eventos y sync diferido. A decidir pronto porque impacta arquitectura cliente/API.
 
-## 3. Sobre el usuario de ruta y la conectividad
-- Escenario A (sin offline): si la ruta tiene conectividad razonable, el conductor puede usar la misma web móvil (PWA) y no se requiere app nativa. Menor complejidad.
-- Escenario B (offline-first): si habrá zonas sin señal, se necesita modo offline para el rol de ruta: caché local, cola de eventos (check-ins, entregas, fotos) y sincronización cuando vuelva la conexión. Esto sí justifica un cliente con capacidades offline robustas (PWA con background sync y control de colas).
-- Definir pronto qué escenario aplica, porque impacta arquitectura del frontend (capa de sincronización), API y modelado de eventos de ruta.
+## 3. Arquitectura actual (repo)
+- `web/`: Next.js 16 (app router, TypeScript, ESLint). Scripts: `npm run dev`, `npm run build`, `npm run start`.
+- `api/`: NestJS 11 (TypeScript, ESLint). Scripts: `npm run start:dev`, `npm run build`, `npm run start:prod`.
+- `.gitignore` en raíz cubre dependencias, builds y entornos.
+- Aún no hay modelo de datos ni endpoints específicos; esto es el esqueleto inicial.
 
-## 4. Arquitectura de alto nivel (web)
-- Capa de presentación: aplicaciones web responsive para cliente, operador y, si aplica, conductor (PWA para soporte móvil y push).
-- Capa de servicios: API REST/GraphQL para CRUD y consultas; canal de tiempo real para tracking (WebSocket/SSE); servicios de autenticación y autorización por rol; notificaciones push web/SMS.
-- Capa de datos: Firestore/Realtime DB para estados y tracking; Cloud Storage para evidencias (fotos); caché en cliente (IndexedDB) si se adopta modo offline.
-- Integraciones externas: Firebase Auth, FCM (push web), Maps API para geocodificación/mapas, SMS gateway (Twilio/u otro) para OTP o alertas.
+## 4. Requisitos web y UX
+- Mobile-first, responsive; PWA para acceso desde pantalla de inicio y push web.
+- Tiempo real: canal WebSocket para eventos de tracking; SSE como alternativa si solo hay flujo de bajada.
+- Performance en redes móviles: payloads ligeros, control de frecuencia de actualización de ubicación.
 
-## 5. UX/UI y requisitos web
-- Mobile-first, responsive; navegación simple en pantallas pequeñas.
-- PWA recomendada para acceso desde pantalla de inicio y notificaciones push.
-- Desempeño en redes móviles: optimizar payloads, uso de imágenes y frecuencias de actualización.
-- Accesibilidad básica: contraste, tamaños táctiles mínimos, etiquetas claras.
+## 5. Despliegue en Render (un solo proveedor)
+Crear dos servicios web (o uno si fusionas API+SSR):
+- Frontend (`web/`):
+  - Tipo: Servicio web. Directorio raíz: `web`.
+  - Build: `npm install && npm run build`
+  - Start: `npm run start`
+  - Variables clave: `PORT` lo define Render; Next las respeta con `next start`.
+- Backend (`api/`):
+  - Tipo: Servicio web. Directorio raíz: `api`.
+  - Build: `npm install && npm run build`
+  - Start: `npm run start:prod`
+  - Variables clave: `PORT` de Render; Nest lee `process.env.PORT`.
+- Añadir servicios gestionados: `Postgres` y `Valor clave` (Redis) desde Render. Configurar las credenciales en env vars de `api` (y `web` si necesita).
 
-## 6. Riesgos y pendientes
-- Decidir necesidad de modo offline para el rol de ruta.
-- Definir SLA de “tiempo real” (frecuencia de ubicación, costo de datos, batería).
-- Política de notificaciones: qué eventos generan push/SMS y a quién.
-- Seguridad y privacidad: protección de datos personales y geolocalización; control de acceso por rol.
+## 6. Cómo correr en local
+- Frontend:
+  - `cd web`
+  - `npm install`
+  - Dev: `npm run dev`
+  - Prod: `npm run build && npm run start`
+- Backend:
+  - `cd api`
+  - `npm install`
+  - Dev: `npm run start:dev`
+  - Prod: `npm run build && npm run start:prod`
 
-## 7. Próximos pasos sugeridos
-- Cerrar la decisión de conectividad para el rol de ruta (Escenario A vs B).
-- Establecer el set mínimo de pantallas web para cliente y admin (MVP).
-- Normalizar el modelo de eventos de tracking (estados, hitos, evidencias) y su impacto en el API.
+## 7. Pendientes próximos
+- Definir Escenario A/B de conectividad para conductor.
+- Modelar entidades (envío, hitos, ubicaciones, evidencias) y estados de tracking con sus eventos en tiempo real.
+- Añadir configuración de Postgres/Redis y variables de entorno (no subir `.env`).
+- Diseñar pantallas clave (cliente y admin) y rutas API iniciales. 

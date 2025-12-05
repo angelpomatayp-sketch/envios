@@ -1,0 +1,38 @@
+# Dependencias
+node_modules/
+.pnp/
+.pnp.js
+
+# Builds y artefactos
+.next/
+dist/
+build/
+out/
+.turbo/
+.cache/
+.parcel-cache/
+coverage/
+
+# Locks (se usará uno a la vez)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Entorno y credenciales
+.env
+.env.*
+
+# Logs y sistema
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
